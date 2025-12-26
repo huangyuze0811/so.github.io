@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>政府机构搜索 | 多部门检索助手</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- 自定义Tailwind配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF', // 主政务蓝
+                        secondary: '#36CFC9',
+                        accent: '#FF7D00',
+                        danger: '#F53F3F',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .search-input-focus {
+                @apply ring-2 ring-primary/30 outline-none;
+            }
+            .engine-btn-active {
+                @apply bg-primary text-white border-primary;
+            }
+            .transition-all-200 {
+                @apply transition-all duration-200 ease-in-out;
+            }
+            .engine-scrollbar::-webkit-scrollbar {
+                width: 4px;
+                height: 4px;
+            }
+            .engine-scrollbar::-webkit-scrollbar-thumb {
+                @apply bg-gray-300 rounded-full;
+            }
+            .engine-scrollbar::-webkit-scrollbar-track {
+                @apply bg-gray-100 rounded-full;
+            }
+            .engine-hidden {
+                @apply hidden;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 flex flex-col">
+    <!-- 头部导航 -->
+    <header class="bg-white shadow-sm py-4 px-6 sticky top-0 z-10">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-magnifying-glass text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-gray-800">政府机构搜索</h1>
+            </div>
+            <div class="text-sm text-gray-500">
+                <span>支持44个国家部委/机构精准检索</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主搜索区域 -->
+    <main class="flex-1 px-4 py-8">
+        <div class="container mx-auto">
+            <!-- 内容搜索框区域 - 置顶显示 -->
+            <div class="w-full max-w-3xl mx-auto mb-6">
+                <div class="relative">
+                    <input type="text" 
+                           id="content-search-input" 
+                           class="w-full py-3 px-5 pr-12 rounded-full border border-gray-300 shadow-sm search-input-focus transition-all-200 text-lg"
+                           placeholder="请输入要搜索的内容..." 
+                           autocomplete="off">
+                    <button id="content-search-btn" 
+                            class="absolute right-3 top-1/2 -translate-y-1/2 bg-primary text-white px-4 py-2 rounded-full transition-all-200 hover:bg-primary/90">
+                        <i class="fa-solid fa-search"></i>
+                    </button>
+                </div>
+                <!-- 快捷键提示 -->
+                <div class="text-center text-sm text-gray-500 mt-2">
+                    <p>按下 <kbd class="px-2 py-1 bg-gray-100 rounded">Enter</kbd> 键快速搜索</p>
+                </div>
+            </div>
+
+            <!-- 搜索历史区域 -->
+            <div class="w-full max-w-3xl mx-auto mb-6 bg-white rounded-lg shadow-sm p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-medium text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-primary"></i>
+                        搜索历史
+                    </h2>
+                    <button id="clear-history" class="text-sm text-gray-500 hover:text-danger transition-all-200">
+                        <i class="fa-solid fa-trash mr-1"></i>清空历史
+                    </button>
+                </div>
+                <div id="history-list" class="flex flex-wrap gap-2 engine-scrollbar max-h-20 overflow-y-auto">
+                    <!-- 搜索历史会通过JS动态生成 -->
+                    <p class="text-gray-400 text-sm w-full text-center" id="empty-history">暂无搜索历史</p>
+                </div>
+            </div>
+
+            <!-- 搜索引擎切换区域 - 滚动容器 -->
+            <div class="w-full max-w-5xl mx-auto bg-white rounded-lg shadow-sm p-4">
+                <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
+                    <h2 class="font-medium text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-building-columns text-primary"></i>
+                        选择搜索机构
+                    </h2>
+                    <!-- 新增：机构搜索筛选框 -->
+                    <div class="relative w-full md:w-64">
+                        <input type="text" 
+                               id="engine-search-input" 
+                               class="w-full py-2 px-4 pl-8 rounded-lg border border-gray-300 shadow-sm search-input-focus transition-all-200 text-sm"
+                               placeholder="搜索机构名称..." 
+                               autocomplete="off">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 engine-scrollbar max-h-[400px] overflow-y-auto p-2" id="engine-container">
+                    <!-- 44个政府机构搜索按钮 -->
+                    <button class="engine-btn-active engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mfa" 
+                            data-name="外交部"
+                            data-url="https://www.mfa.gov.cn/irs-c-web/search.shtml?code=17e50b77dab&dataTypeld=758&searchBy=title&searchWord=que">
+                        <i class="fa-solid fa-globe mr-1"></i>外交部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mod" 
+                            data-name="国防部"
+                            data-url="http://www.mod.gov.cn/zilm/ssjgym/index.html?searchfield=TITLE&keyword=que&indexsearch=2">
+                        <i class="fa-solid fa-shield-halved mr-1"></i>国防部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="ndrc" 
+                            data-name="国家发展和改革委员会"
+                            data-url="https://so.ndrc.gov.cn/s?siteCode=bm04000007&ssl=1&token=&qt=que">
+                        <i class="fa-solid fa-chart-line mr-1"></i>国家发改委
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="moe" 
+                            data-name="教育部"
+                            data-url="https://so.moe.gov.cn/s?siteCode=bm05000001&tab=all&qt=que">
+                        <i class="fa-solid fa-graduation-cap mr-1"></i>教育部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="most" 
+                            data-name="科学技术部"
+                            data-url="https://www.most.gov.cn/search/qzjs/?searchWord=que&group=%E5%85%A8%E7%AB%99">
+                        <i class="fa-solid fa-flask mr-1"></i>科技部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="miit" 
+                            data-name="工业和信息化部"
+                            data-url="https://so.miit.gov.cn/was5/web/search?channelid=238949&searchword=que">
+                        <i class="fa-solid fa-microchip mr-1"></i>工信部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="moj" 
+                            data-name="司法部"
+                            data-url="https://search.moj.gov.cn/was5/web/search?channelid=264153&searchword=que">
+                        <i class="fa-solid fa-gavel mr-1"></i>司法部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mof" 
+                            data-name="财政部"
+                            data-url="http://search.mof.gov.cn/was5/web/search?channelid=264148&searchword=que">
+                        <i class="fa-solid fa-coins mr-1"></i>财政部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mohrss" 
+                            data-name="人力资源和社会保障部"
+                            data-url="https://so.mohrss.gov.cn/was5/web/search?channelid=238952&searchword=que">
+                        <i class="fa-solid fa-user-tie mr-1"></i>人社部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mee" 
+                            data-name="生态环境部"
+                            data-url="https://so.mee.gov.cn/was5/web/search?channelid=238954&searchword=que">
+                        <i class="fa-solid fa-leaf mr-1"></i>生态环境部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mohurd" 
+                            data-name="住房和城乡建设部"
+                            data-url="https://search.mohurd.gov.cn/was5/web/search?channelid=264150&searchword=que">
+                        <i class="fa-solid fa-building mr-1"></i>住建部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mot" 
+                            data-name="交通运输部"
+                            data-url="https://so.mot.gov.cn/was5/web/search?channelid=238955&searchword=que">
+                        <i class="fa-solid fa-road mr-1"></i>交通运输部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mwr" 
+                            data-name="水利部"
+                            data-url="https://so.mwr.gov.cn/was5/web/search?channelid=238956&searchword=que">
+                        <i class="fa-solid fa-water mr-1"></i>水利部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="moa" 
+                            data-name="农业农村部"
+                            data-url="https://so.moa.gov.cn/was5/web/search?channelid=238957&searchword=que">
+                        <i class="fa-solid fa-tractor mr-1"></i>农业农村部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mofcom" 
+                            data-name="商务部"
+                            data-url="https://so.mofcom.gov.cn/was5/web/search?channelid=238958&searchword=que">
+                        <i class="fa-solid fa-handshake-angle mr-1"></i>商务部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mct" 
+                            data-name="文化和旅游部"
+                            data-url="https://so.mct.gov.cn/was5/web/search?channelid=238959&searchword=que">
+                        <i class="fa-solid fa-palette mr-1"></i>文旅部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="nhc" 
+                            data-name="国家卫生健康委员会"
+                            data-url="https://so.nhc.gov.cn/was5/web/search?channelid=238960&searchword=que">
+                        <i class="fa-solid fa-heart-pulse mr-1"></i>卫健委
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mem" 
+                            data-name="应急管理部"
+                            data-url="https://so.mem.gov.cn/was5/web/search?channelid=238961&searchword=que">
+                        <i class="fa-solid fa-helmet-safety mr-1"></i>应急管理部
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="pbc" 
+                            data-name="中国人民银行"
+                            data-url="https://so.pbc.gov.cn/was5/web/search?channelid=238962&searchword=que">
+                        <i class="fa-solid fa-landmark mr-1"></i>中国人民银行
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="audit" 
+                            data-name="审计署"
+                            data-url="https://so.audit.gov.cn/was5/web/search?channelid=238963&searchword=que">
+                        <i class="fa-solid fa-magnifying-glass-chart mr-1"></i>审计署
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="sasac" 
+                            data-name="国务院国有资产监督管理委员会"
+                            data-url="https://so.sasac.gov.cn/was5/web/search?channelid=238964&searchword=que">
+                        <i class="fa-solid fa-industry mr-1"></i>国资委
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="customs" 
+                            data-name="海关总署"
+                            data-url="https://so.customs.gov.cn/was5/web/search?channelid=238965&searchword=que">
+                        <i class="fa-solid fa-border-all mr-1"></i>海关总署
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="chinatax" 
+                            data-name="国家税务总局"
+                            data-url="https://so.chinatax.gov.cn/was5/web/search?channelid=238966&searchword=que">
+                        <i class="fa-solid fa-file-invoice-dollar mr-1"></i>税务总局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="samr" 
+                            data-name="国家市场监督管理总局"
+                            data-url="https://so.samr.gov.cn/was5/web/search?channelid=238967&searchword=que">
+                        <i class="fa-solid fa-scale-balanced mr-1"></i>市监总局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="cbirc" 
+                            data-name="国家金融监督管理总局"
+                            data-url="https://so.cbirc.gov.cn/was5/web/search?channelid=238968&searchword=que">
+                        <i class="fa-solid fa-money-bill-trend-up mr-1"></i>金融监管总局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="csrc" 
+                            data-name="中国证券监督管理委员会"
+                            data-url="https://so.csrc.gov.cn/was5/web/search?channelid=238969&searchword=que">
+                        <i class="fa-solid fa-chart-pie mr-1"></i>证监会
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="nrta" 
+                            data-name="国家广播电视总局"
+                            data-url="https://so.nrta.gov.cn/was5/web/search?channelid=238970&searchword=que">
+                        <i class="fa-solid fa-tv mr-1"></i>广电总局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="sport" 
+                            data-name="国家体育总局"
+                            data-url="https://so.sport.gov.cn/was5/web/search?channelid=238971&searchword=que">
+                        <i class="fa-solid fa-dumbbell mr-1"></i>体育总局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="stats" 
+                            data-name="国家统计局"
+                            data-url="https://so.stats.gov.cn/was5/web/search?channelid=238972&searchword=que">
+                        <i class="fa-solid fa-table-cells mr-1"></i>统计局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="cnipa" 
+                            data-name="国家知识产权局"
+                            data-url="https://so.cnipa.gov.cn/was5/web/search?channelid=238973&searchword=que">
+                        <i class="fa-solid fa-lightbulb mr-1"></i>知识产权局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="nhsa" 
+                            data-name="国家医疗保障局"
+                            data-url="https://so.nhsa.gov.cn/was5/web/search?channelid=238974&searchword=que">
+                        <i class="fa-solid fa-prescription-bottle mr-1"></i>医保局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="gat" 
+                            data-name="国务院台湾事务办公室"
+                            data-url="https://so.gat.gov.cn/was5/web/search?channelid=238976&searchword=que">
+                        <i class="fa-solid fa-flag mr-1"></i>国台办
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="cas" 
+                            data-name="中国科学院"
+                            data-url="https://so.cas.cn/was5/web/search?channelid=238977&searchword=que">
+                        <i class="fa-solid fa-atom mr-1"></i>中科院
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="cma" 
+                            data-name="中国气象局"
+                            data-url="https://so.cma.gov.cn/was5/web/search?channelid=238978&searchword=que">
+                        <i class="fa-solid fa-cloud-sun mr-1"></i>气象局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="lswz" 
+                            data-name="国家粮食和物资储备局"
+                            data-url="https://so.lswz.gov.cn/was5/web/search?channelid=238979&searchword=que">
+                        <i class="fa-solid fa-grain mr-1"></i>粮食和储备局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="nea" 
+                            data-name="国家能源局"
+                            data-url="https://so.nea.gov.cn/was5/web/search?channelid=238980&searchword=que">
+                        <i class="fa-solid fa-bolt mr-1"></i>能源局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="forestry" 
+                            data-name="国家林业和草原局"
+                            data-url="https://so.forestry.gov.cn/was5/web/search?channelid=238981&searchword=que">
+                        <i class="fa-solid fa-tree mr-1"></i>林草局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="nra" 
+                            data-name="国家铁路局"
+                            data-url="https://so.nra.gov.cn/was5/web/search?channelid=238982&searchword=que">
+                        <i class="fa-solid fa-train mr-1"></i>铁路局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="caac" 
+                            data-name="中国民用航空局"
+                            data-url="https://so.caac.gov.cn/was5/web/search?channelid=238983&searchword=que">
+                        <i class="fa-solid fa-plane mr-1"></i>民航局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="spb" 
+                            data-name="国家邮政局"
+                            data-url="https://so.spb.gov.cn/was5/web/search?channelid=238984&searchword=que">
+                        <i class="fa-solid fa-envelope mr-1"></i>邮政局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="ncha" 
+                            data-name="国家文物局"
+                            data-url="https://so.ncha.gov.cn/was5/web/search?channelid=238985&searchword=que">
+                        <i class="fa-solid fa-monument mr-1"></i>文物局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="mem-mine" 
+                            data-name="国家矿山安全监察局"
+                            data-url="https://so.mem.gov.cn/was5/web/search?channelid=238986&searchword=que">
+                        <i class="fa-solid fa-mountain-sun mr-1"></i>矿山安监局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="safe" 
+                            data-name="国家外汇管理局"
+                            data-url="https://so.safe.gov.cn/was5/web/search?channelid=238987&searchword=que">
+                        <i class="fa-solid fa-money-bill-transfer mr-1"></i>外汇管理局
+                    </button>
+                    <button class="engine-btn px-3 py-2 rounded-lg border border-gray-300 transition-all-200 text-sm hover:shadow-sm" 
+                            data-engine="nmpa" 
+                            data-name="国家药品监督管理局"
+                            data-url="https://so.nmpa.gov.cn/was5/web/search?channelid=238988&searchword=que">
+                        <i class="fa-solid fa-pills mr-1"></i>药监局
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white py-4 px-6 border-t border-gray-200">
+        <div class="container mx-auto text-center text-gray-500 text-sm">
+            <p>政府机构搜索 © 2025 | 便捷检索各部委公开信息</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript 逻辑 -->
+    <script>
+        // 全局变量
+        let currentSearchUrl = 'https://www.mfa.gov.cn/irs-c-web/search.shtml?code=17e50b77dab&dataTypeld=758&searchBy=title&searchWord=que';
+        const HISTORY_KEY = 'gov_search_history'; // 本地存储键名
+        
+        // DOM元素获取
+        const contentSearchInput = document.getElementById('content-search-input');
+        const contentSearchBtn = document.getElementById('content-search-btn');
+        const engineSearchInput = document.getElementById('engine-search-input');
+        const engineBtns = document.querySelectorAll('.engine-btn');
+        const engineContainer = document.getElementById('engine-container');
+        const historyList = document.getElementById('history-list');
+        const emptyHistory = document.getElementById('empty-history');
+        const clearHistoryBtn = document.getElementById('clear-history');
+
+        // ========== 新增：搜索引擎筛选功能 ==========
+        function filterEngineButtons() {
+            // 获取筛选关键词并转为小写
+            const filterText = engineSearchInput.value.trim().toLowerCase();
+            
+            // 遍历所有机构按钮进行筛选
+            engineBtns.forEach(btn => {
+                const engineName = btn.getAttribute('data-name').toLowerCase();
+                const displayName = btn.textContent.toLowerCase();
+                
+                // 匹配完整名称或简称
+                if (filterText === '' || engineName.includes(filterText) || displayName.includes(filterText)) {
+                    btn.classList.remove('engine-hidden');
+                } else {
+                    btn.classList.add('engine-hidden');
+                }
+            });
+        }
+
+        // ========== 搜索引擎切换逻辑 ==========
+        engineBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // 移除所有按钮的激活状态
+                engineBtns.forEach(b => b.classList.remove('engine-btn-active'));
+                // 给当前点击的按钮添加激活状态
+                this.classList.add('engine-btn-active');
+                // 更新当前搜索引擎的URL
+                currentSearchUrl = this.getAttribute('data-url');
+            });
+        });
+
+        // ========== 搜索历史功能 ==========
+        // 从本地存储获取搜索历史
+        function getSearchHistory() {
+            const historyStr = localStorage.getItem(HISTORY_KEY);
+            return historyStr ? JSON.parse(historyStr) : [];
+        }
+
+        // 保存搜索记录到本地存储
+        function saveSearchHistory(keyword) {
+            if (!keyword.trim()) return;
+            
+            let history = getSearchHistory();
+            // 去重 - 如果已存在则先删除
+            history = history.filter(item => item !== keyword);
+            // 添加到开头
+            history.unshift(keyword);
+            // 限制最多保存20条记录
+            if (history.length > 20) {
+                history = history.slice(0, 20);
+            }
+            // 保存到本地存储
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            // 更新历史列表显示
+            renderSearchHistory();
+        }
+
+        // 渲染搜索历史列表
+        function renderSearchHistory() {
+            const history = getSearchHistory();
+            
+            // 清空现有内容（保留empty提示）
+            while (historyList.children.length > 1) {
+                historyList.removeChild(historyList.lastChild);
+            }
+            
+            // 显示/隐藏空提示
+            if (history.length === 0) {
+                emptyHistory.style.display = 'block';
+                return;
+            } else {
+                emptyHistory.style.display = 'none';
+            }
+            
+            // 创建历史记录标签
+            history.forEach(keyword => {
+                const tag = document.createElement('span');
+                tag.className = 'bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm hover:bg-primary/10 cursor-pointer transition-all-200';
+                tag.textContent = keyword;
+                
+                // 点击历史记录重新搜索
+                tag.addEventListener('click', function() {
+                    contentSearchInput.value = keyword;
+                    performSearch();
+                });
+                
+                // 添加删除按钮
+                const deleteIcon = document.createElement('i');
+                deleteIcon.className = 'fa-solid fa-times ml-1 text-gray-400 hover:text-danger cursor-pointer';
+                deleteIcon.addEventListener('click', function(e) {
+                    e.stopPropagation(); // 阻止冒泡到父元素
+                    deleteSearchHistory(keyword);
+                });
+                
+                tag.appendChild(deleteIcon);
+                historyList.appendChild(tag);
+            });
+        }
+
+        // 删除单条搜索记录
+        function deleteSearchHistory(keyword) {
+            let history = getSearchHistory();
+            history = history.filter(item => item !== keyword);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            renderSearchHistory();
+        }
+
+        // 清空所有搜索历史
+        function clearAllHistory() {
+            if (confirm('确定要清空所有搜索历史吗？')) {
+                localStorage.removeItem(HISTORY_KEY);
+                renderSearchHistory();
+            }
+        }
+
+        // ========== 核心搜索功能 ==========
+        function performSearch() {
+            // 获取并清理搜索关键词
+            const searchText = contentSearchInput.value.trim();
+            
+            // 验证输入内容
+            if (!searchText) {
+                contentSearchInput.classList.add('border-danger');
+                contentSearchInput.placeholder = '请输入搜索内容后再试！';
+                setTimeout(() => {
+                    contentSearchInput.classList.remove('border-danger');
+                    contentSearchInput.placeholder = '请输入要搜索的内容...';
+                }, 2000);
+                return;
+            }
+
+            // 保存搜索历史
+            saveSearchHistory(searchText);
+            
+            // 替换URL中的que占位符并编码
+            const finalUrl = currentSearchUrl.replace('que', encodeURIComponent(searchText));
+            // 在新标签页打开搜索结果
+            window.open(finalUrl, '_blank');
+        }
+
+        // ========== 事件绑定 ==========
+        // 内容搜索按钮点击
+        contentSearchBtn.addEventListener('click', performSearch);
+
+        // 内容搜索框回车键触发搜索
+        contentSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        // 内容搜索框焦点样式
+        contentSearchInput.addEventListener('focus', function() {
+            this.classList.add('search-input-focus');
+        });
+        contentSearchInput.addEventListener('blur', function() {
+            this.classList.remove('search-input-focus');
+        });
+
+        // 新增：机构搜索框输入事件（实时筛选）
+        engineSearchInput.addEventListener('input', filterEngineButtons);
+        engineSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // 阻止默认行为，避免触发内容搜索
+                filterEngineButtons();
+            }
+        });
+        engineSearchInput.addEventListener('focus', function() {
+            this.classList.add('search-input-focus');
+        });
+        engineSearchInput.addEventListener('blur', function() {
+            this.classList.remove('search-input-focus');
+        });
+
+        // 清空历史按钮
+        clearHistoryBtn.addEventListener('click', clearAllHistory);
+
+        // ========== 初始化 ==========
+        // 页面加载时渲染搜索历史
+        document.addEventListener('DOMContentLoaded', function() {
+            renderSearchHistory();
+            // 初始化机构按钮显示（确保全部可见）
+            engineBtns.forEach(btn => btn.classList.remove('engine-hidden'));
+        });
+    </script>
+</body>
+</html>
